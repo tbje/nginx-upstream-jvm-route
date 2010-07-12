@@ -67,6 +67,7 @@ typedef struct {
     ngx_uint_t                      max_busy;
     time_t                          fail_timeout;
     ngx_uint_t                      down;          /* unsigned  down:1; */
+    ngx_uint_t                      retire;          /* unsigned  retire:1; */
     ngx_str_t                       srun_id;
 
 #if (NGX_HTTP_SSL)
@@ -356,7 +357,8 @@ ngx_http_upstream_init_jvm_route_rr(ngx_conf_t *cf,
                 peers->peer[n].max_busy = server[i].max_busy;
                 peers->peer[n].fail_timeout = server[i].fail_timeout;
                 peers->peer[n].down = server[i].down;
-                peers->peer[n].weight = server[i].down ? 0 : server[i].weight;
+                peers->peer[n].weight = server[i].down || server[i].retire ? 0 : server[i].weight;
+                peers->peer[n].retire = server[i].retire;
 
                 n++;
             }
@@ -410,6 +412,7 @@ ngx_http_upstream_init_jvm_route_rr(ngx_conf_t *cf,
                 backup->peer[n].max_busy = server[i].max_busy;
                 backup->peer[n].fail_timeout = server[i].fail_timeout;
                 backup->peer[n].down = server[i].down;
+                backup->peer[n].retire = server[i].retire;
 
                 n++;
             }
@@ -810,7 +813,7 @@ ngx_http_upstream_choose_by_rr(ngx_http_upstream_jvm_route_peer_data_t *jrp)
                 continue;
             }
 
-            if (ngx_http_upstream_jvm_route_try_peer(jrp, n) == NGX_OK) {
+            if (!peer[n].retire && ngx_http_upstream_jvm_route_try_peer(jrp, n) == NGX_OK) {
                 return n;
             }
         }
@@ -1177,6 +1180,7 @@ ngx_http_upstream_jvm_route(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         | NGX_HTTP_UPSTREAM_MAX_FAILS
         | NGX_HTTP_UPSTREAM_FAIL_TIMEOUT
         | NGX_HTTP_UPSTREAM_SRUN_ID
+        | NGX_HTTP_UPSTREAM_RETIRE
         | NGX_HTTP_UPSTREAM_DOWN;
 
     return NGX_CONF_OK;
